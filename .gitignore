@@ -1,0 +1,29 @@
+# VSCode + Python
+.idea/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node.js frontend
+frontend/node_modules/
+frontend/.env
+
+# Python model artifacts
+*.pt
+*.pth
+*.ipynb_checkpoints/
+
+# Outputs
+frames/
+*.json
+*.log
+
+# Videos
+*.mp4
+*.avi
+*.mov
+
+# System
+.DS_Store

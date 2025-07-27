@@ -1,0 +1,10 @@
+body {
+  overflow-x: hidden; /* This hides horizontal scrollbars and prevents horizontal overflow */
+}
+
+/* Optional but recommended for consistent full-height layouts */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
