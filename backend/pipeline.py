@@ -9,8 +9,14 @@ from tqdm import tqdm
 import json
 import mimetypes
 
+# Generalized captions are stored in the root folder, relative to this script
+import traceback
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "best_model.pth"))
+CAPTIONS_PATH = os.path.join(BASE_DIR, "generalized_captions_generalized.txt")
+
 # CONFIG
-model_path = "/Users/preetham_aleti/Desktop/scenesolver/best_model.pth"
+model_path = MODEL_PATH
 frames_dir = "frames"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -66,8 +72,17 @@ evidence_labels = [
 def load_clip_model(model_path):
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    state_dict = torch.load(model_path, map_location=device, weights_only=False)
-    model.load_state_dict(state_dict, strict=False)
+    
+    if os.path.exists(model_path):
+        try:
+            state_dict = torch.load(model_path, map_location=device, weights_only=False)
+            model.load_state_dict(state_dict, strict=False)
+            print(f"Loaded local model weights from {model_path}")
+        except Exception as e:
+            print(f"Warning: Failed to load local model weights from {model_path}: {e}")
+    else:
+        print(f"Warning: Model weights file not found at {model_path}. Using base CLIP model.")
+        
     model = model.to(device).eval()
     return model, processor
 
@@ -84,7 +99,7 @@ def extract_frames(video_path, output_folder, fps=1, max_frames=30):
     count = 0
     saved = 0
     original_fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_interval = int(original_fps // fps) if fps > 0 else 30
+    frame_interval = int(original_fps // fps) if (original_fps and fps > 0) else 30
 
     while cap.isOpened() and saved < max_frames:
         ret, frame = cap.read()
@@ -111,6 +126,9 @@ def classify_image(model, processor, image_path, labels, top_k=3):
 
 # Load captions
 def load_generalized_captions(path):
+    if not os.path.exists(path):
+        print(f"Warning: Captions file not found at {path}. Returning fallback.")
+        return ["A general crime scene or evidence."]
     with open(path, "r") as f:
         captions = [line.strip() for line in f if line.strip()]
     return captions
@@ -137,7 +155,7 @@ def summarize_captions(captions, max_length=500, min_length=100):
 # Analyze image
 def analyze_image(image_path):
     model, processor = load_clip_model(model_path)
-    generalized_captions = load_generalized_captions("/Users/preetham_aleti/Desktop/scenesolver/generalized_captions_generalized.txt")
+    generalized_captions = load_generalized_captions(CAPTIONS_PATH)
 
     crime_pred = classify_image(model, processor, image_path, crime_labels, top_k=1)
     evidence_pred = classify_image(model, processor, image_path, evidence_labels, top_k=3)
@@ -160,7 +178,7 @@ def analyze_video(video_path):
     evidence_counter = Counter()
     selected_captions = []
 
-    generalized_captions = load_generalized_captions("/Users/preetham_aleti/Desktop/generalized_captions_generalized.txt")
+    generalized_captions = load_generalized_captions(CAPTIONS_PATH)
 
     for frame in tqdm(frame_paths):
         crime_pred = classify_image(model, processor, frame, crime_labels, top_k=1)
